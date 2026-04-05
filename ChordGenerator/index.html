@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chord Progressions - 3:7 Stack</title>
+    <style>
+        :root { --accent-green: #90EE90; --dark-green: #2E8B57; }
+
+        body {
+            font-family: "Inter", sans-serif;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            user-select: none;
+            color: #000;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header-controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            width: 100%;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            background: #fafafa;
+        }
+
+        .divider { width: 1px; height: 20px; background: #ddd; margin: 0 5px; }
+
+        .control-item { display: flex; align-items: center; gap: 6px; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+        select, input { padding: 5px 10px; border-radius: 20px; border: 1px solid #000; background: #fff; font-size: 10px; outline: none; }
+
+        #chord-display { font-size: 24px; font-weight: 900; margin-bottom: 15px; height: 30px; letter-spacing: -1px; text-align: center; }
+
+        #recording-preview-zone {
+            display: none; align-items: center; gap: 12px; background: #f9f9f9; padding: 10px 20px; border-radius: 30px; margin-bottom: 20px; border: 1px solid #eee;
+        }
+
+        .timeline-wrapper { width: 100%; margin-bottom: 25px; }
+        .timeline-container { width: 100%; height: 12px; background: #f8f8f8; border-radius: 6px; position: relative; overflow: hidden; border: 1px solid #ddd; }
+        .beat-grid { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; pointer-events: none; }
+        .beat-line { height: 100%; border-left: 1px solid rgba(0,0,0,0.1); flex: 1; }
+        .beat-line.bar-start { border-left: 1px solid rgba(0,0,0,0.4); }
+        #playhead { position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: #000; z-index: 10; }
+
+        .performance-stack {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            gap: 30px;
+        }
+
+        .pads-grid {
+            flex: 3;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            width: 100%;
+            max-width: 350px;
+            margin: 0 auto;
+        }
+
+        .pad-btn {
+            aspect-ratio: 1 / 1;
+            border: 1px solid #000;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 8px;
+            cursor: pointer;
+            font-size: 9px;
+            font-weight: 800;
+            transition: all 0.1s;
+            background: #fff;
+            position: relative;
+        }
+
+        .pad-btn::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 105%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .pad-btn:hover::after {
+            opacity: 1;
+        }
+
+        .pad-number-label {
+            position: absolute;
+            top: 6px;
+            left: 8px;
+            font-size: 8px;
+            color: #999;
+            font-weight: 400;
+        }
+
+        .pad-btn.active { background: #000; color: #fff; }
+        .pad-btn.active .pad-number-label { color: #fff; opacity: 0.5; }
+
+        .keyboard-wrapper {
+            flex: 7;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+
+        .keyboard {
+            display: flex;
+            width: 100%;
+            height: 220px;
+            position: relative;
+        }
+
+        .key {
+            flex: 1;
+            border: 1px solid #000;
+            border-radius: 0 0 4px 4px;
+            cursor: pointer;
+            position: relative;
+        }
+        .key-white { background: #fff; z-index: 1; }
+        .key-black {
+            background: #000;
+            flex: 0.6;
+            height: 120px;
+            margin-left: -3%;
+            margin-right: -3%;
+            z-index: 2;
+        }
+
+        .active-playing { background: var(--accent-green) !important; }
+        .key-black.active-playing { background: var(--dark-green) !important; }
+
+        .key-label { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; color: #999; }
+        .btn-black { padding: 6px 14px; background: #000; color: #fff; border: none; border-radius: 20px; font-size: 10px; font-weight: 800; cursor: pointer; }
+        .btn-outline { padding: 6px 14px; background: #fff; color: #000; border: 1px solid #000; border-radius: 20px; font-size: 10px; font-weight: 800; cursor: pointer; }
+        #rec-audio-btn { background: #ff3b30; color: #fff; border-color: #ff3b30; }
+        #rec-audio-btn.recording { background: #d70015; color: #fff; border-color: #d70015; }
+        #met-btn.active { background: #000; color: #fff; border-color: #000; }
+        
+        #play-btn { padding: 6px 14px; border-radius: 20px; font-size: 10px; font-weight: 800; cursor: pointer; background: #28cd41; color: #fff; border: none; }
+        #play-btn.playing { background: #ff3b30; }
+
+        /* Frog Visualizer Styles */
+        #frog-visualizer {
+            display: flex; justify-content: center; margin-top: -10px; margin-bottom: 10px; z-index: 5;
+        }
+        #frog-character {
+            width: 200px; max-width: 100%; height: auto; transition: transform 0.05s ease-out; cursor: default;
+        }
+        /* The animation class: squishes down slightly like hitting a key */
+        #frog-character.playing { transform: none; }
+
+        #countdown-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.8); color: #000; font-size: 120px; font-weight: 900;
+            justify-content: center; align-items: center; z-index: 2000;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div id="chord-display">—</div>
+
+        <!-- Frog Visualizer -->
+        <div id="frog-visualizer">
+            <img id="frog-character" src="frog-maestro-handoff.png" alt="Maestro Frog">
+        </div>
+
+        <div id="countdown-overlay">3</div>
+
+        <div id="recording-preview-zone">
+            <audio id="audio-preview" controls style="height: 30px;"></audio>
+            <button id="save-btn" class="btn-black">SAVE</button>
+            <button id="del-btn" class="btn-outline">DEL</button>
+        </div>
+
+        <div class="header-controls">
+            <!-- Row 1: Global Settings -->
+            <div class="control-row">
+                <div class="control-group">
+                    <div class="control-item">KEY
+                        <div id="key-type-toggle" style="display: flex; gap: 2px; margin-right: 4px;">
+                            <button class="btn-black" data-type="natural" style="padding: 2px 6px; min-width: 24px;">♮</button>
+                            <button class="btn-outline" data-type="sharp" style="padding: 2px 6px; min-width: 24px;">♯</button>
+                            <button class="btn-outline" data-type="flat" style="padding: 2px 6px; min-width: 24px;">♭</button>
+                        </div>
+                        <select id="key-ctrl"></select>
+                    </div>
+
+                    <div class="control-item">OCT
+                        <button id="oct-down" class="btn-outline" style="padding: 2px 8px;">-</button>
+                        <span id="oct-label">4</span>
+                        <button id="oct-up" class="btn-outline" style="padding: 2px 8px;">+</button>
+                    </div>
+
+                    <div class="control-item">BPM <input type="number" id="bpm-ctrl" value="90" style="width: 40px;"></div>
+                </div>
+                
+                <div class="divider"></div>
+                
+                <button id="met-btn" class="btn-outline">♩ MET</button>
+                <div class="control-item">VOL <input type="range" id="met-vol-ctrl" min="-60" max="0" value="-10" style="width: 60px; padding: 0;"></div>
+            </div>
+
+            <!-- Row 2: Playback & Actions -->
+            <div class="control-row">
+                <div class="control-group">
+                    <div class="control-item">PROGRESSION
+                        <select id="prog-ctrl">
+                            <option value="manual">MANUAL</option>
+                            <option value="251">ii - V - I</option>
+                            <option value="1625">I - vi - ii - V</option>
+                            <option value="1564">I - V - vi - IV</option>
+                            <option value="1645">I - vi - IV - V</option>
+                            <option value="2536">ii - V - iii - vi</option>
+                            <option value="4536">IV - V - iii - vi</option>
+                            <option value="1451">I - IV - V - I</option>
+                        </select>
+                    </div>
+                    <button id="play-btn">▶ PLAY</button>
+                </div>
+
+                <div class="divider"></div>
+
+                <button id="rec-audio-btn" class="btn-outline">⏺ REC</button>
+                <button id="reset-btn" class="btn-outline">RESET</button>
+            </div>
+        </div>
+
+        <div class="timeline-wrapper">
+            <div class="timeline-container">
+                <div class="beat-grid" id="beat-grid"></div>
+                <div id="playhead"></div>
+            </div>
+        </div>
+
+        <div class="performance-stack">
+            <div class="pads-grid" id="pads">
+                <div class="pad-btn" data-type="dim" data-tooltip="Diminished"><span class="pad-number-label">1</span>Dim</div>
+                <div class="pad-btn" data-type="min" data-tooltip="Minor"><span class="pad-number-label">2</span>Min</div>
+                <div class="pad-btn active" data-type="maj" data-tooltip="Major"><span class="pad-number-label">3</span>Maj</div>
+                <div class="pad-btn" data-type="sus" data-tooltip="Suspended"><span class="pad-number-label">4</span>Sus</div>
+                <div class="pad-btn extension" data-type="6" data-tooltip="Add 6th"><span class="pad-number-label">5</span>6</div>
+                <div class="pad-btn" data-type="m7" data-tooltip="Minor 7th"><span class="pad-number-label">6</span>m7</div>
+                <div class="pad-btn" data-type="M7" data-tooltip="Major 7th"><span class="pad-number-label">7</span>M7</div>
+                <div class="pad-btn extension" data-type="9" data-tooltip="Add 9th"><span class="pad-number-label">8</span>9</div>
+            </div>
+
+            <div class="keyboard-wrapper">
+                <div class="keyboard" id="piano-keys"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preload Images to prevent flickering -->
+    <div style="display: none;">
+        <img src="frog-maestro-handson.png">
+        <img src="frog-maestro-handoff.png">
+    </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
